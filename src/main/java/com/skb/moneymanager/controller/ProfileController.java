@@ -38,10 +38,10 @@ public class ProfileController {
         try {
             if (!profileService.isAccountActive(authDto.getEmail())) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
-                        "message", "Account is not active.Please activate your account first."
+                        "message", "Account is not active. Please activate your account first."
                 ));
             }
-            Map<String, Object> response = (Map<String, Object>) profileService.authenticateAndGenerateToken(authDto);
+            Map<String, Object> response = profileService.authenticateAndGenerateToken(authDto);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
@@ -49,8 +49,9 @@ public class ProfileController {
             ));
         }
     }
+
     @GetMapping("/test")
-    public String test(){
+    public String test() {
         return "Test successful";
     }
 }

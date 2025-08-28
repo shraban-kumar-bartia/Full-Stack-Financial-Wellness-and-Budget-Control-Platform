@@ -1,23 +1,26 @@
-# Stage 1: Build the application JAR
+# -------- Stage 1: Build the app --------
 FROM maven:3.9.6-eclipse-temurin-21 AS build
 WORKDIR /app
 
-# Copy Maven configuration and source code
+# Copy pom.xml and download dependencies (caching layer)
 COPY pom.xml .
+RUN mvn dependency:go-offline -B
+
+# Copy source code
 COPY src ./src
 
-# Build the JAR (skip tests for faster build)
+# Build jar (skip tests for deployment)
 RUN mvn clean package -DskipTests
 
-# Stage 2: Run the application
+# -------- Stage 2: Run the app --------
 FROM eclipse-temurin:21-jre
 WORKDIR /app
 
-# Copy JAR from the build stage
-COPY --from=build /app/target/moneymanager-0.0.1-SNAPSHOT.jar moneymanager-v1.0.jar
+# Copy the jar without hardcoding version
+COPY --from=build /app/target/*.jar app.jar
 
 # Expose Spring Boot’s default port
 EXPOSE 8080
 
-# Run the application
-ENTRYPOINT ["java", "-jar", "moneymanager-v1.0.jar"]
+# Run the app
+ENTRYPOINT ["java", "-jar", "app.jar"]

@@ -17,13 +17,15 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class ProfileEntity {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "full_name")
     private String fullName;
 
-    @Column(unique = true)
+    @Column(unique = true, nullable = false)
     private String email;
 
     private String password;
@@ -40,7 +42,7 @@ public class ProfileEntity {
     private String activationToken;
 
     @PrePersist
-    public void prePersist(){
+    public void prePersist() {
         if (this.isActive == null) {
             this.isActive = false;
         }
