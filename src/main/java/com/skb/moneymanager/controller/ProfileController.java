@@ -13,6 +13,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1.0")
 @RequiredArgsConstructor
+@CrossOrigin(origins = {"http://localhost:5173", "https://moneymanager-frontend.onrender.com"})
 public class ProfileController {
 
     private final ProfileService profileService;
