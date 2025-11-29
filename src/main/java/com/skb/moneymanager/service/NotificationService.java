@@ -4,8 +4,8 @@ import com.skb.moneymanager.dto.ExpenseDTO;
 import com.skb.moneymanager.entity.ProfileEntity;
 import com.skb.moneymanager.repository.ProfileRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -24,7 +24,7 @@ public class NotificationService {
     @Value("${money.manager.frontend.url}")
     private String frontendUrl;
 
-//        @Scheduled(cron = "0 * * * * *", zone = "IST")
+    // @Scheduled(cron = "0 * * * * *", zone = "IST")
     @Scheduled(cron = "0 0 22 * * *", zone = "IST")
     public void sendDailyIncomeExpenseReminder() {
         log.info("Job started: sendDailyIncomeExpenseReminder()");
@@ -76,19 +76,24 @@ public class NotificationService {
         log.info("Job completed: sendDailyIncomeExpenseReminder()");
     }
 
-//    @Scheduled(cron = "0 * * * * *", zone = "IST")
+//     @Scheduled(cron = "0 * * * * *", zone = "IST")
     @Scheduled(cron = "0 0 * * * *", zone = "IST")
     public void sendDailyExpenseSummary() {
         log.info("Job started: sendDailyExpenseSummary()");
         List<ProfileEntity> profiles = profileRepository.findAll();
         for (ProfileEntity profile : profiles) {
             List<ExpenseDTO> todaysExpenses = expenseService.getExpenseForUserOnDate(profile.getId(), LocalDate.now());
+
             if (!todaysExpenses.isEmpty()) {
+                double totalAmount = todaysExpenses.stream()
+                        .mapToDouble(expense -> expense.getAmount().doubleValue())
+                        .sum();
+
                 StringBuilder table = new StringBuilder();
 
-                // Table with proper styling
-                table.append("<table style='border-collapse:collapse;width:100%;font-family:Arial,sans-serif;font-size:14px;'>");
-                table.append("<tr style='background-color:#f2f2f2;'>")
+                // Expense table with all expenses for today
+                table.append("<table style='border-collapse:collapse;width:100%;font-family:Arial,sans-serif;font-size:14px;'>")
+                        .append("<tr style='background-color:#f2f2f2;'>")
                         .append("<th style='border:1px solid #ddd;padding:8px;'>S.No</th>")
                         .append("<th style='border:1px solid #ddd;padding:8px;'>Name</th>")
                         .append("<th style='border:1px solid #ddd;padding:8px;'>Amount</th>")
@@ -101,15 +106,21 @@ public class NotificationService {
                     table.append("<tr>")
                             .append("<td style='border:1px solid #ddd;padding:8px;text-align:center;'>").append(i++).append("</td>")
                             .append("<td style='border:1px solid #ddd;padding:8px;'>").append(expense.getName()).append("</td>")
-                            .append("<td style='border:1px solid #ddd;padding:8px;'>").append(expense.getAmount()).append("</td>")
+                            .append("<td style='border:1px solid #ddd;padding:8px;'>₹").append(expense.getAmount()).append("</td>")
                             .append("<td style='border:1px solid #ddd;padding:8px;'>")
-                            .append(expense.getCategoryId() != null ? expense.getCategoryId() : "N/A")
+                            .append(expense.getCategoryName() != null ? expense.getCategoryName() : "N/A")
                             .append("</td>")
                             .append("<td style='border:1px solid #ddd;padding:8px;'>").append(LocalDate.now()).append("</td>")
                             .append("</tr>");
                 }
 
-                table.append("</table>");
+                // Add total row
+                table.append("<tr style='background-color:#f9fafb;font-weight:bold;'>")
+                        .append("<td colspan='2' style='border:1px solid #ddd;padding:8px;text-align:right;'>Total:</td>")
+                        .append("<td style='border:1px solid #ddd;padding:8px;'>₹").append(String.format("%.2f", totalAmount)).append("</td>")
+                        .append("<td colspan='2' style='border:1px solid #ddd;padding:8px;'></td>")
+                        .append("</tr>")
+                        .append("</table>");
 
                 String body =
                         "<!DOCTYPE html>" +

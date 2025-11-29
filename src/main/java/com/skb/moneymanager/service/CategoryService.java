@@ -14,63 +14,81 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class CategoryService {
+
     private final ProfileService profileService;
     private final CategoryRepository categoryRepository;
 
-    //save category
-    public CategoryDTO saveCategory(CategoryDTO categoryDTO){
-        ProfileEntity profile = profileService.getCurrentProfile();;
-        if(categoryRepository.existsByNameAndProfileId(categoryDTO.getName(), profile.getId())){
-            throw new ResponseStatusException(HttpStatus.CONFLICT,"Category with this name already exsits");
+    // ✅ Create category
+    public CategoryDTO saveCategory(CategoryDTO categoryDTO) {
+        ProfileEntity profile = profileService.getCurrentProfile();
+
+        if (categoryRepository.existsByNameAndProfileId(categoryDTO.getName(), profile.getId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Category with this name already exists");
         }
+
         CategoryEntity newCategory = toEntity(categoryDTO, profile);
         newCategory = categoryRepository.save(newCategory);
         return toDTO(newCategory);
     }
 
-    //get categories for current user
-    public List<CategoryDTO> getCategoriesForCurrentUser(){
+    // ✅ Get all categories for current user
+    public List<CategoryDTO> getCategoriesForCurrentUser() {
         ProfileEntity profile = profileService.getCurrentProfile();
         List<CategoryEntity> categories = categoryRepository.findByProfileId(profile.getId());
         return categories.stream().map(this::toDTO).toList();
     }
 
-    public CategoryDTO updateCategory(Long categoryId, CategoryDTO dto){
+    // ✅ Update category (now includes type)
+    public CategoryDTO updateCategory(Long categoryId, CategoryDTO dto) {
         ProfileEntity profile = profileService.getCurrentProfile();
-        CategoryEntity existingCategory = categoryRepository.findByIdAndProfileId(categoryId , profile.getId())
-                .orElseThrow(() -> new RuntimeException("Category not found or not accessible"));
+
+        CategoryEntity existingCategory = categoryRepository.findByIdAndProfileId(categoryId, profile.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Category not found or not accessible"));
+
         existingCategory.setName(dto.getName());
         existingCategory.setIcon(dto.getIcon());
-        existingCategory = categoryRepository.save(existingCategory);
-        return toDTO(existingCategory);
+        existingCategory.setType(dto.getType()); // ✅ Fix: update category type
+
+        CategoryEntity updated = categoryRepository.save(existingCategory);
+        return toDTO(updated);
     }
 
-    //get categories by type for current user
-    public List<CategoryDTO> getCategoriesByTypeForCurrentUser(String type){
+    // ✅ Get categories by type
+    public List<CategoryDTO> getCategoriesByTypeForCurrentUser(String type) {
         ProfileEntity profile = profileService.getCurrentProfile();
         List<CategoryEntity> entities = categoryRepository.findByTypeAndProfileId(type, profile.getId());
-         return entities.stream().map(this::toDTO).toList();
+        return entities.stream().map(this::toDTO).toList();
     }
 
-    //helper methods
-    private CategoryEntity toEntity(CategoryDTO categoryDTO, ProfileEntity profile){
+    // ✅ Delete (checks ownership)
+    public void deleteCategory(Long categoryId) {
+        ProfileEntity profile = profileService.getCurrentProfile();
+
+        CategoryEntity category = categoryRepository.findByIdAndProfileId(categoryId, profile.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Category not found or not accessible"));
+
+        categoryRepository.delete(category);
+    }
+
+    // Helper: DTO ↔ Entity
+    private CategoryEntity toEntity(CategoryDTO categoryDTO, ProfileEntity profile) {
         return CategoryEntity.builder()
                 .name(categoryDTO.getName())
                 .icon(categoryDTO.getIcon())
-                .profile(profile)
                 .type(categoryDTO.getType())
+                .profile(profile)
                 .build();
     }
 
-    private CategoryDTO toDTO(CategoryEntity entity){
+    private CategoryDTO toDTO(CategoryEntity entity) {
         return CategoryDTO.builder()
                 .id(entity.getId())
-                .profileId(entity.getProfile() != null ? entity.getProfile().getId(): null)
+                .profileId(entity.getProfile() != null ? entity.getProfile().getId() : null)
                 .name(entity.getName())
                 .icon(entity.getIcon())
+                .type(entity.getType())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
-                .type(entity.getType())
                 .build();
     }
 }

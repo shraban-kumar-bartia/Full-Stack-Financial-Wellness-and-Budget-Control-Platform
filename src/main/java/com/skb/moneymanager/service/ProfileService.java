@@ -7,8 +7,8 @@ import com.skb.moneymanager.repository.ProfileRepository;
 import com.skb.moneymanager.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
-import org.apache.catalina.User;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -22,6 +22,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class ProfileService {
+
     private final ProfileRepository profileRepository;
     private final EmailService emailService;
     private final PasswordEncoder passwordEncoder;
@@ -35,12 +36,14 @@ public class ProfileService {
         ProfileEntity newProfile = toEntity(profileDTO);
         newProfile.setActivationToken(UUID.randomUUID().toString());
         profileRepository.save(newProfile);
-        //send activation email
-         String activationLink = activationURL+"/api/v1.0/activate?token=" + newProfile.getActivationToken();
-         String subject = "Activate your Money Manger Account";
-         String body = "Click on the following link to activate your account: " + activationLink;
-         emailService.sendEmail(newProfile.getEmail(), subject, body);
-         return toDTO(newProfile);
+
+        // Send activation email
+        String activationLink = activationURL + "/api/v1.0/activate?token=" + newProfile.getActivationToken();
+        String subject = "Activate your Money Manager Account";
+        String body = "Click the following link to activate your account: " + activationLink;
+        emailService.sendEmail(newProfile.getEmail(), subject, body);
+
+        return toDTO(newProfile);
     }
 
     public ProfileEntity toEntity(ProfileDTO profileDTO){
@@ -68,7 +71,7 @@ public class ProfileService {
 
     public boolean activateProfile(String activationToken){
         return profileRepository.findByActivationToken(activationToken)
-                .map(profile ->{
+                .map(profile -> {
                     profile.setIsActive(true);
                     profileRepository.save(profile);
                     return true;
@@ -85,17 +88,22 @@ public class ProfileService {
     public ProfileEntity getCurrentProfile(){
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         return profileRepository.findByEmail(authentication.getName())
-                .orElseThrow(() -> new UsernameNotFoundException("Profile not found with email: "+authentication.getName()));
+                .orElseThrow(() -> new UsernameNotFoundException(
+                        "Profile not found with email: " + authentication.getName()
+                ));
     }
 
     public ProfileDTO getPublicProfile(String email){
-        ProfileEntity currentUser = null;
+        ProfileEntity currentUser;
         if(email == null){
             currentUser = getCurrentProfile();
-        }else{
-           currentUser =  profileRepository.findByEmail(email)
-                   .orElseThrow(() -> new UsernameNotFoundException("Profile not found with email: "+email));
+        } else {
+            currentUser = profileRepository.findByEmail(email)
+                    .orElseThrow(() -> new UsernameNotFoundException(
+                            "Profile not found with email: " + email
+                    ));
         }
+
         return ProfileDTO.builder()
                 .id(currentUser.getId())
                 .fullName(currentUser.getFullName())
@@ -106,16 +114,25 @@ public class ProfileService {
                 .build();
     }
 
+    // ✅ Updated login method with user-friendly error message
     public Map<String, Object> authenticateAndGenerateToken(AuthDto authDto) {
         try {
-            authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(authDto.getEmail(), authDto.getPassword()));
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(authDto.getEmail(), authDto.getPassword())
+            );
+
             String token = jwtUtil.generateToken(authDto.getEmail());
+
             return Map.of(
                     "token", token,
                     "user", getPublicProfile(authDto.getEmail())
             );
+
+        } catch (BadCredentialsException e) {
+            // Friendly message instead of raw exception
+            throw new RuntimeException("Invalid email or password");
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException("Something went wrong. Please try again later.");
         }
     }
 }
